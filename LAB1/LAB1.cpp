@@ -9,6 +9,8 @@
 #include <omp.h>
 #include <stdio.h>
 #include <fstream>
+#include <format>
+#include <string>
 
 using namespace std;
 using namespace this_thread;
@@ -86,6 +88,14 @@ void setConsoleColor(short color)
     SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
 }
 
+void saveToFile(string filename, string content)
+{
+    ofstream logFile;
+    logFile.open(filename, ios_base::app);
+    logFile << content;
+    logFile.close();
+}
+
 void func(char character, int iterations, int delay, WORD color)
 {
     for (int i = 0; i < iterations; i++)
@@ -124,11 +134,13 @@ void func_omp(char character, int iterations, int delay, WORD color)
 {
     for (int i = 0; i < iterations; i++)
     {
-//#pragma omp critical
-        short previousColor = getConsoleColor();
-        setConsoleColor(color);
-        printf("%c ", character);
-        setConsoleColor(previousColor);
+        #pragma omp critical
+        {
+            short previousColor = getConsoleColor();
+            setConsoleColor(color);
+            printf("%c ", character);
+            setConsoleColor(previousColor);
+        }
 
         sleep_for(milliseconds(delay));
     }
@@ -136,11 +148,11 @@ void func_omp(char character, int iterations, int delay, WORD color)
     setConsoleColor(WHITE);
 }
 
-void runTasks(int iterations, int delayTime, int taskCount, bool saveLogs)
+void runTasks(int iterations, int delayTime, int taskCount, bool saveLogs, string filename)
 {
     // string repeatChar;
     string letters = "ABCDEFGHIJ";
-    WORD colors[] = { BLUE, RED, YELLOW, MAGENTA, DARKGREEN, WHITE, DARKBLUE, CYAN, DARKGRAY, DARKMAGENTA };
+    WORD colors[] = { BLUE, RED, YELLOW, MAGENTA, DARKGREEN, WHITE, DARKBLUE, CYAN, DARKYELLOW, DARKMAGENTA };
 
     long sequenceTime;
     long parallelTime;
@@ -213,7 +225,7 @@ void runTasks(int iterations, int delayTime, int taskCount, bool saveLogs)
 
     start = high_resolution_clock::now();
 
-#pragma omp parallel for
+    #pragma omp parallel for
     for (int i = 0; i < taskCount; i++)
     {
         func(letters[i], iterations, delayTime, colors[i]);
@@ -232,10 +244,10 @@ void runTasks(int iterations, int delayTime, int taskCount, bool saveLogs)
 
     start = high_resolution_clock::now();
 
-#pragma omp parallel for
+    #pragma omp parallel for
     for (int i = 0; i < taskCount; i++)
     {
-        func(letters[i], iterations, delayTime, colors[i]);
+        func_omp(letters[i], iterations, delayTime, colors[i]);
     }
 
     stop = high_resolution_clock::now();
@@ -247,11 +259,21 @@ void runTasks(int iterations, int delayTime, int taskCount, bool saveLogs)
 #pragma region Save times data to file
     if (saveLogs)
     {
-        ofstream logFile;
-        string filename = "logs//log.csv";
-        logFile.open(filename, ios_base::app);
-        logFile << "\n" << logNo << ";" << sequenceTime << ";" << parallelTime << ";" << parallelMutexTime << ";" << parallelOmpTime << ";" << parallelOmpCriticalTime;
-        logFile.close();
+        string content = "\n";
+        content += to_string(logNo);
+        content += ";";
+        content += to_string(sequenceTime);
+        content += ";";
+        content += to_string(parallelTime);
+        content += ";";
+        content += to_string(parallelMutexTime);
+        content += ";";
+        content += to_string(parallelOmpTime);
+        content += ";";
+        content += to_string(parallelOmpCriticalTime);
+        content += ";";
+
+        saveToFile(filename, content);
     }
 #pragma endregion
 }
@@ -268,14 +290,12 @@ int main()
     // Wykonanie manualne
     //do
     //{
-    //    #pragma region Header
     //    system("cls");
     //    printHeader();
 
     //    iterations = readInt(" -> WprowadŸ liczbê iteracji dla zadania - sugerowana wartoœæ [40 - 60]: ");
     //    delayTime = readInt(" -> WprowadŸ wartopœæ opóŸnienia - sugerowane [100 - 500]: ");
     //    taskCount = readInt(" -> WprowadŸ iloœæ wyœwietlanych liter [1 - 10]: ");
-    //    #pragma endregion
 
     //    runTasks(iterations, delayTime, taskCount, false);
 
@@ -285,18 +305,28 @@ int main()
     //} while (repeat);
 
     // Automatyzacja
-    #pragma region Header
+
     system("cls");
     printHeader();
 
     iterations = readInt(" -> WprowadŸ liczbê iteracji dla zadania - sugerowana wartoœæ [40 - 60]: ");
     delayTime = readInt(" -> WprowadŸ wartopœæ opóŸnienia - sugerowane [100 - 500]: ");
     taskCount = readInt(" -> WprowadŸ iloœæ wyœwietlanych liter [1 - 10]: ");
-    #pragma endregion
+    int count = 10;
 
-    for (int i = 0; i < 50; i++)
+    string filename = "logs//";
+    filename += to_string(iterations);
+    filename += "-";
+    filename += to_string(delayTime);
+    filename += "-";
+    filename += to_string(count);
+    filename += ".csv";
+
+    saveToFile(filename, "No;Sequence;Prallel;ParallelMutex;ParallelOmp;ParallelOmpCrit");
+
+    for (int i = 0; i < count; i++)
     {
-        runTasks(iterations, delayTime, taskCount, true);
+        runTasks(iterations, delayTime, taskCount, true, filename);
         logNo++;
     }
 
