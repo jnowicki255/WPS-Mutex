@@ -6,12 +6,17 @@
 #include <locale.h>
 #include <mutex>
 #include <vector>
+#include <omp.h>
+#include <stdio.h>
+#include <fstream>
 
 using namespace std;
 using namespace this_thread;
 using namespace chrono;
 
 std::mutex colourMtx;
+
+int logNo = 1;
 
 enum {
     DARKBLUE = FOREGROUND_BLUE,
@@ -115,81 +120,186 @@ void func_mutex(char character, int iterations, int delay, WORD color)
     setConsoleColor(WHITE);
 }
 
+void func_omp(char character, int iterations, int delay, WORD color)
+{
+    for (int i = 0; i < iterations; i++)
+    {
+//#pragma omp critical
+        short previousColor = getConsoleColor();
+        setConsoleColor(color);
+        printf("%c ", character);
+        setConsoleColor(previousColor);
+
+        sleep_for(milliseconds(delay));
+    }
+
+    setConsoleColor(WHITE);
+}
+
+void runTasks(int iterations, int delayTime, int taskCount, bool saveLogs)
+{
+    // string repeatChar;
+    string letters = "ABCDEFGHIJ";
+    WORD colors[] = { BLUE, RED, YELLOW, MAGENTA, DARKGREEN, WHITE, DARKBLUE, CYAN, DARKGRAY, DARKMAGENTA };
+
+    long sequenceTime;
+    long parallelTime;
+    long parallelMutexTime;
+    long parallelOmpTime;
+    long parallelOmpCriticalTime;
+
+#pragma region Sequence
+    // Przetwarzanie sekwencyjne
+    printf("\n\n ===========> Zadania realizowane SEKWENCYJNIE - liczba zadañ: %d\n", taskCount);
+    printf(" KIERUNEK UP£YWU CZASU---- > \n");
+
+    auto start = high_resolution_clock::now();
+    for (int i = 0; i < taskCount; i++)
+    {
+        func(letters[i], iterations, delayTime, colors[i]);
+    }
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<milliseconds>(stop - start);
+    sequenceTime = duration.count();
+    printf("\nCzas przetwarzania: %d ms", duration.count());
+#pragma endregion
+
+#pragma region Parallel
+    // Przetwarzanie równoleg³e
+    printf("\n\n ===========> Zadania realizowane RÓWNOLEGLE - liczba zadañ: %d\n", taskCount);
+    printf(" KIERUNEK UP£YWU CZASU---- > \n");
+
+    start = high_resolution_clock::now();
+    vector<thread> threads;
+    for (int i = 0; i < taskCount; i++)
+    {
+        threads.emplace_back(thread(func, letters[i], iterations, delayTime, colors[i]));
+    }
+
+    for (auto& th : threads)
+        th.join();
+
+    stop = high_resolution_clock::now();
+    duration = duration_cast<milliseconds>(stop - start);
+    parallelTime = duration.count();
+    printf("\nCzas przetwarzania: %d ms", duration.count());
+#pragma endregion
+
+#pragma region Parallel MUTEX
+    // Przetwarzanie równoleg³e z MUTEX'em
+    printf("\n\n ===========> Zadania realizowane RÓWNOLEGLE z MUTEXem - liczba zadañ: %d\n", taskCount);
+    printf(" KIERUNEK UP£YWU CZASU---- > \n");
+
+    start = high_resolution_clock::now();
+    vector<thread> threads_mutex;
+    for (int i = 0; i < taskCount; i++)
+    {
+        threads_mutex.emplace_back(thread(func_mutex, letters[i], iterations, delayTime, colors[i]));
+    }
+
+    for (auto& th : threads_mutex)
+        th.join();
+
+    stop = high_resolution_clock::now();
+    duration = duration_cast<milliseconds>(stop - start);
+    parallelMutexTime = duration.count();
+    printf("\nCzas przetwarzania: %d ms", duration.count());
+#pragma endregion
+
+#pragma region Parallel OpenMP
+    // Przetwarzanie równoleg³e Open MP
+    printf("\n\n ===========> Zadania realizowane RÓWNOLEGLE OpenMP - liczba zadañ: %d\n", taskCount);
+    printf(" KIERUNEK UP£YWU CZASU---- > \n");
+
+    start = high_resolution_clock::now();
+
+#pragma omp parallel for
+    for (int i = 0; i < taskCount; i++)
+    {
+        func(letters[i], iterations, delayTime, colors[i]);
+    }
+
+    stop = high_resolution_clock::now();
+    duration = duration_cast<milliseconds>(stop - start);
+    parallelOmpTime = duration.count();
+    printf("\nCzas przetwarzania: %d ms", duration.count());
+#pragma endregion
+
+#pragma region Parallel OpenMP Critical Section
+    // Przetwarzanie równoleg³e Open MP z sekcj¹ krytyczn¹
+    printf("\n\n ===========> Zadania realizowane RÓWNOLEGLE OpenMP z sekcj¹ krytyczn¹ - liczba zadañ: %d\n", taskCount);
+    printf(" KIERUNEK UP£YWU CZASU---- > \n");
+
+    start = high_resolution_clock::now();
+
+#pragma omp parallel for
+    for (int i = 0; i < taskCount; i++)
+    {
+        func(letters[i], iterations, delayTime, colors[i]);
+    }
+
+    stop = high_resolution_clock::now();
+    duration = duration_cast<milliseconds>(stop - start);
+    parallelOmpCriticalTime = duration.count();
+    printf("\nCzas przetwarzania: %d ms", duration.count());
+#pragma endregion
+
+#pragma region Save times data to file
+    if (saveLogs)
+    {
+        ofstream logFile;
+        string filename = "logs//log.csv";
+        logFile.open(filename, ios_base::app);
+        logFile << "\n" << logNo << ";" << sequenceTime << ";" << parallelTime << ";" << parallelMutexTime << ";" << parallelOmpTime << ";" << parallelOmpCriticalTime;
+        logFile.close();
+    }
+#pragma endregion
+}
+
 int main()
 {
     setlocale(LC_CTYPE, "Polish");
 
     int iterations;
     int delayTime;
-    string repeatChar;
     bool repeat = false;
     int taskCount;
-    string letters = "ABCDEFGHIJ";
-    WORD colors[] = { BLUE, RED, YELLOW, MAGENTA, DARKGREEN, WHITE, DARKBLUE, CYAN, DARKGRAY, DARKMAGENTA };
 
+    // Wykonanie manualne
+    //do
+    //{
+    //    #pragma region Header
+    //    system("cls");
+    //    printHeader();
 
-    do
+    //    iterations = readInt(" -> WprowadŸ liczbê iteracji dla zadania - sugerowana wartoœæ [40 - 60]: ");
+    //    delayTime = readInt(" -> WprowadŸ wartopœæ opóŸnienia - sugerowane [100 - 500]: ");
+    //    taskCount = readInt(" -> WprowadŸ iloœæ wyœwietlanych liter [1 - 10]: ");
+    //    #pragma endregion
+
+    //    runTasks(iterations, delayTime, taskCount, false);
+
+    //    // Ponowne wykonanie
+    //    repeat = checkIfRepeat();
+
+    //} while (repeat);
+
+    // Automatyzacja
+    #pragma region Header
+    system("cls");
+    printHeader();
+
+    iterations = readInt(" -> WprowadŸ liczbê iteracji dla zadania - sugerowana wartoœæ [40 - 60]: ");
+    delayTime = readInt(" -> WprowadŸ wartopœæ opóŸnienia - sugerowane [100 - 500]: ");
+    taskCount = readInt(" -> WprowadŸ iloœæ wyœwietlanych liter [1 - 10]: ");
+    #pragma endregion
+
+    for (int i = 0; i < 50; i++)
     {
-        system("cls");
-        printHeader();
+        runTasks(iterations, delayTime, taskCount, true);
+        logNo++;
+    }
 
-        iterations = readInt(" -> WprowadŸ liczbê iteracji dla zadania - sugerowana wartoœæ [40 - 60]: ");
-        delayTime = readInt(" -> WprowadŸ wartopœæ opóŸnienia - sugerowane [100 - 500]: ");
-        taskCount = readInt(" -> WprowadŸ iloœæ wyœwietlanych liter [1 - 10]: ");
-
-        // Przetwarzanie sekwencyjne
-        printf("\n\n ===========> Zadania realizowane SEKWENCYJNIE - liczba zadañ: %d\n", taskCount);
-        printf(" KIERUNEK UP£YWU CZASU---- > \n");
-
-        auto start = high_resolution_clock::now();
-        for (int i = 0; i < taskCount; i++)
-        {
-            func(letters[i], iterations, delayTime, colors[i]);
-        }
-        auto stop = high_resolution_clock::now();
-        auto duration = duration_cast<milliseconds>(stop - start);
-        printf("\nCzas przetwarzania: %d ms", duration.count());
-
-        // Przetwarzanie równoleg³e
-        printf("\n\n ===========> Zadania realizowane RÓWNOLEGLE - liczba zadañ: %d\n", taskCount);
-        printf(" KIERUNEK UP£YWU CZASU---- > \n");
-
-        start = high_resolution_clock::now();
-        vector<thread> threads;
-        for (int i = 0; i < taskCount; i++)
-        {
-            threads.emplace_back(thread(func, letters[i], iterations, delayTime, colors[i]));
-        }
-
-        for (auto& th : threads)
-            th.join();
-
-        stop = high_resolution_clock::now();
-        duration = duration_cast<milliseconds>(stop - start);
-        printf("\nCzas przetwarzania: %d ms", duration.count());
-
-        // Przetwarzanie równoleg³e z MUTEX'em
-        printf("\n\n ===========> Zadania realizowane RÓWNOLEGLE z MUTEXem - liczba zadañ: %d\n", taskCount);
-        printf(" KIERUNEK UP£YWU CZASU---- > \n");
-
-        start = high_resolution_clock::now();
-        vector<thread> threads_mutex;
-        for (int i = 0; i < taskCount; i++)
-        {
-            threads_mutex.emplace_back(thread(func_mutex, letters[i], iterations, delayTime, colors[i]));
-        }
-
-        for (auto& th : threads_mutex)
-            th.join();
-
-        stop = high_resolution_clock::now();
-        duration = duration_cast<milliseconds>(stop - start);
-        printf("\nCzas przetwarzania: %d ms", duration.count());
-
-        // Ponowne wykonanie
-        repeat = checkIfRepeat();
-
-    } while (repeat);
 
     return 0;
 }
