@@ -297,7 +297,7 @@ int main()
     //    delayTime = readInt(" -> WprowadŸ wartopœæ opóŸnienia - sugerowane [100 - 500]: ");
     //    taskCount = readInt(" -> WprowadŸ iloœæ wyœwietlanych liter [1 - 10]: ");
 
-    //    runTasks(iterations, delayTime, taskCount, false);
+    //    runTasks(iterations, delayTime, taskCount, false, "");
 
     //    // Ponowne wykonanie
     //    repeat = checkIfRepeat();
