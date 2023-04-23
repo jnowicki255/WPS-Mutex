@@ -288,47 +288,47 @@ int main()
     int taskCount;
 
     // Wykonanie manualne
-    //do
-    //{
-    //    system("cls");
-    //    printHeader();
+    do
+    {
+        system("cls");
+        printHeader();
 
-    //    iterations = readInt(" -> WprowadŸ liczbê iteracji dla zadania - sugerowana wartoœæ [40 - 60]: ");
-    //    delayTime = readInt(" -> WprowadŸ wartopœæ opóŸnienia - sugerowane [100 - 500]: ");
-    //    taskCount = readInt(" -> WprowadŸ iloœæ wyœwietlanych liter [1 - 10]: ");
+        iterations = readInt(" -> WprowadŸ liczbê iteracji dla zadania - sugerowana wartoœæ [40 - 60]: ");
+        delayTime = readInt(" -> WprowadŸ wartopœæ opóŸnienia - sugerowane [100 - 500]: ");
+        taskCount = readInt(" -> WprowadŸ iloœæ wyœwietlanych liter [1 - 10]: ");
 
-    //    runTasks(iterations, delayTime, taskCount, false, "");
+        runTasks(iterations, delayTime, taskCount, false, "");
 
-    //    // Ponowne wykonanie
-    //    repeat = checkIfRepeat();
+        // Ponowne wykonanie
+        repeat = checkIfRepeat();
 
-    //} while (repeat);
+    } while (repeat);
 
     // Automatyzacja
 
-    system("cls");
-    printHeader();
+    //system("cls");
+    //printHeader();
 
-    iterations = readInt(" -> WprowadŸ liczbê iteracji dla zadania - sugerowana wartoœæ [40 - 60]: ");
-    delayTime = readInt(" -> WprowadŸ wartopœæ opóŸnienia - sugerowane [100 - 500]: ");
-    taskCount = readInt(" -> WprowadŸ iloœæ wyœwietlanych liter [1 - 10]: ");
-    int count = 10;
+    //iterations = readInt(" -> WprowadŸ liczbê iteracji dla zadania - sugerowana wartoœæ [40 - 60]: ");
+    //delayTime = readInt(" -> WprowadŸ wartopœæ opóŸnienia - sugerowane [100 - 500]: ");
+    //taskCount = readInt(" -> WprowadŸ iloœæ wyœwietlanych liter [1 - 10]: ");
+    //int count = 20;
 
-    string filename = "logs//";
-    filename += to_string(iterations);
-    filename += "-";
-    filename += to_string(delayTime);
-    filename += "-";
-    filename += to_string(count);
-    filename += ".csv";
+    //string filename = "logs//";
+    //filename += to_string(iterations);
+    //filename += "-";
+    //filename += to_string(delayTime);
+    //filename += "-";
+    //filename += to_string(count);
+    //filename += ".csv";
 
-    saveToFile(filename, "No;Sequence;Prallel;ParallelMutex;ParallelOmp;ParallelOmpCrit");
+    //saveToFile(filename, "No;Sequence;Prallel;ParallelMutex;ParallelOmp;ParallelOmpCrit");
 
-    for (int i = 0; i < count; i++)
-    {
-        runTasks(iterations, delayTime, taskCount, true, filename);
-        logNo++;
-    }
+    //for (int i = 0; i < count; i++)
+    //{
+    //    runTasks(iterations, delayTime, taskCount, true, filename);
+    //    logNo++;
+    //}
 
 
     return 0;
