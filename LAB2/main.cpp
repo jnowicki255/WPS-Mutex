@@ -11,6 +11,7 @@
 #include <fstream>
 #include <format>
 #include <string>
+#include <cmath>
 #include "matrix.h"
 
 using namespace std;
@@ -22,6 +23,18 @@ void printHeader()
     cout << "********************************************************************************" << endl;
     cout << "Autor programu: Jacek Nowicki" << endl;
     cout << "********************************************************************************" << endl;
+}
+
+char** initArray(int size)
+{
+    char** array = new char* [size];
+
+    for (int i = 0; i < size; i++)
+    {
+        array[i] = new char[size];
+    }
+
+    return array;
 }
 
 int readInt(string message)
@@ -40,59 +53,58 @@ int main()
 
     // Deklaracja zmiennych
     bool dispMatrixes = false;
-    bool saveMatrixes = true;
-    int tabSize = readInt("Podaj rozmiar tablicy (");
+    bool saveMatrixes = false;
+    int groupSize = 2;
+    int size = readInt("Podaj wymiar macierzy: ");
     int min = readInt("Podaj minimalna wartosc [0-127]: ");
     int max = readInt("Podaj maksymalna wartosc [0-127]: ");
     int delay = readInt("Podaj opoznienie [ms]: ");
+    double noOfGroups = ceil(size / groupSize);
 
     // Deklaracja i wyœwietlenie tablicy pierwotnej
-    vector<vector<char>> originalTab;
-
-
-
-
-    char tab[tabSize][MAX_TAB_SIZE];
-    genMatrix(tab, tabSize, min, max);
+    auto originalTab = initArray(size);
+    genMatrix(originalTab, size, min, max);
     if (dispMatrixes)
     {
-        dispMatrix(tab, tabSize);
-    }   
+        dispMatrix(originalTab, size);
+    }
 
+    //==============================================================================================
     // Sortowanie sekwencyjne
+    //==============================================================================================
     cout << "--> 1. Sortowanie sekwencyjne..." << endl;
-    char tabSeq[tabSize][MAX_TAB_SIZE];
-    copyMatrix(tabSeq, tab, tabSize);
+    auto sequenceTab = initArray(size);
+    copyMatrix(originalTab, sequenceTab, size);
 
     auto start = high_resolution_clock::now();
-    sortRowsMatrix(tabSeq, tabSize, delay);
+    sortRowsMatrix(sequenceTab, size, delay);
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<milliseconds>(stop - start);
-    int sequenceTime = duration.count();
-    
     if (dispMatrixes)
     {
-        dispMatrix(tabSeq, tabSize);
+        dispMatrix(sequenceTab, size);
     }
-    
+
     if (saveMatrixes)
     {
-        matrixToFile("1-Sequence.csv", tabSeq, tabSize);
+        matrixToFile("1-Sequence.csv", sequenceTab, size);
     }
-    cout << "----> Czas realizacji zadania sekwencyjnego: " << sequenceTime << "[ms]" << endl;
+    cout << "----> Czas realizacji zadania sekwencyjnego: " << duration.count() << "[ms]" << endl;
+    //==============================================================================================
 
 
+    //==============================================================================================
     // Sortowanie równoleg³e (liczba w¹tków równa liczbie wierszy)
+    //==============================================================================================
     cout << "--> 2. Sortowanie zrownoleglone..." << endl;
-    char tabPar[tabSize][MAX_TAB_SIZE];
-    copyMatrix(tabPar, tab, tabSize);
+    auto parallelTab = initArray(size);
+    copyMatrix(originalTab, parallelTab, size);
+    vector<thread> threads;
 
     start = high_resolution_clock::now();
-
-    vector<thread> threads;
-    for (int i = 0; i < tabSize; i++)
+    for (int i = 0; i < size; i++)
     {
-        threads.emplace_back(thread(sortRowsMatrixThread, tabPar, tabSize, i, delay));
+        threads.emplace_back(thread(sortRowsMatrixThread, parallelTab, size, i, delay));
     }
 
     for (auto& th : threads)
@@ -100,26 +112,143 @@ int main()
 
     stop = high_resolution_clock::now();
     duration = duration_cast<milliseconds>(stop - start);
-    sequenceTime = duration.count();
 
     if (dispMatrixes)
     {
-        dispMatrix(tabPar, tabSize);
+        dispMatrix(parallelTab, size);
     }
 
     if (saveMatrixes)
     {
-        matrixToFile("2-Parallel.csv", tabPar, tabSize);
+        matrixToFile("2-Parallel.csv", parallelTab, size);
     }
-    cout << "----> Czas realizacji zadania rownoleglego: " << sequenceTime << "[ms]" << endl;
+    cout << "----> Czas realizacji zadania rownoleglego: " << duration.count() << "[ms]" << endl;
+    //==============================================================================================
 
 
+    //==============================================================================================
+    // Sortowanie równoleg³e (liczba w¹tków mniejsza ni¿ liczba wierszy)
+    //==============================================================================================
+    cout << "--> 3. Sortowanie zrownoleglone (mniejsza liczba watkow)..." << endl;
+    auto groupTab = initArray(size);
+    copyMatrix(originalTab, groupTab, size);
+    vector<thread> threads_groups;
+    vector<vector<int>> groups;
+
+    int rowNo = 0;
+    for (int i = 0; i < noOfGroups; i++)
+    {
+        vector<int> group;
+        for (int j = 0; j < groupSize; j++)
+        {
+            if (rowNo < size)
+            {
+                group.push_back(rowNo);
+                rowNo++;
+            }
+        }
+        groups.push_back(group);
+    }
+
+    start = high_resolution_clock::now();
+    for (int i = 0; i < groups.size(); i++)
+    {
+        threads_groups.emplace_back(thread(sortRowsMatrixThreadGroup, groupTab, size, groups[i], delay));
+    }
+
+    for (auto& th : threads_groups)
+        th.join();
+
+    stop = high_resolution_clock::now();
+    duration = duration_cast<milliseconds>(stop - start);
+
+    if (dispMatrixes)
+    {
+        dispMatrix(groupTab, size);
+    }
+
+    if (saveMatrixes)
+    {
+        matrixToFile("3-Parallel_2.csv", groupTab, size);
+    }
+    cout << "----> Czas realizacji zadania rownoleglego (mniejsza liczba watkow): " << duration.count() << "[ms]" << endl;
+    //==============================================================================================
 
 
+    //==============================================================================================
+    // Sortowanie równoleg³e OpenMP
+    //==============================================================================================
+    cout << "--> 4. Sortowanie zrownoleglone OpenMP..." << endl;
+    auto parallelOmpTab = initArray(size);
+    copyMatrix(originalTab, parallelOmpTab, size);
+
+    start = high_resolution_clock::now();
+
+#pragma omp parallel for
+    for (int i = 0; i < size; i++)
+    {
+        sortRowsMatrixThread(parallelOmpTab, size, i, delay);
+    }
+
+    stop = high_resolution_clock::now();
+    duration = duration_cast<milliseconds>(stop - start);
+
+    if (dispMatrixes)
+    {
+        dispMatrix(parallelOmpTab, size);
+    }
+
+    if (saveMatrixes)
+    {
+        matrixToFile("4-ParallelOMP.csv", parallelOmpTab, size);
+    }
+    cout << "----> Czas realizacji zadania rownoleglego OpenMP: " << duration.count() << "[ms]" << endl;
+    //==============================================================================================
 
 
+    //==============================================================================================
+    // Sortowanie równoleg³e OpenMP (liczba w¹tków mniejsza ni¿ liczba wierszy)
+    //==============================================================================================
+    cout << "--> 5. Sortowanie zrownoleglone OpenMP (mniejsza liczba watkow)..." << endl;
+    auto groupOmpTab = initArray(size);
+    copyMatrix(originalTab, groupOmpTab, size);
+    vector<vector<int>> groupsOmp;
 
+    rowNo = 0;
+    for (int i = 0; i < noOfGroups; i++)
+    {
+        vector<int> group;
+        for (int j = 0; j < groupSize; j++)
+        {
+            if (rowNo < size)
+            {
+                group.push_back(rowNo);
+                rowNo++;
+            }
+        }
+        groupsOmp.push_back(group);
+    }
 
+    start = high_resolution_clock::now();
 
+#pragma omp parallel for
+    for (int i = 0; i < groupsOmp.size(); i++)
+    {
+        sortRowsMatrixThreadGroup(groupOmpTab, size, groupsOmp[i], delay);
+    }
 
+    stop = high_resolution_clock::now();
+    duration = duration_cast<milliseconds>(stop - start);
+
+    if (dispMatrixes)
+    {
+        dispMatrix(groupOmpTab, size);
+    }
+
+    if (saveMatrixes)
+    {
+        matrixToFile("3-Parallel_2.csv", groupOmpTab, size);
+    }
+    cout << "----> Czas realizacji zadania rownoleglego OpenMP (mniejsza liczba watkow): " << duration.count() << "[ms]" << endl;
+    //==============================================================================================
 }
