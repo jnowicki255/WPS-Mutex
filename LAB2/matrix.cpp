@@ -164,6 +164,6 @@ void sortRowsMatrixThreadGroup(char** tab2D, int size, vector<int> selectedRows,
     for (int i = 0; i < selectedRows.size(); i++)
     {
         bubbleSort(tab2D[selectedRows[i]], size, delay);
-       // radixSort(tab2D[selectedRows[i]], size);
+        //radixSort(tab2D[selectedRows[i]], size);
     }
 }
